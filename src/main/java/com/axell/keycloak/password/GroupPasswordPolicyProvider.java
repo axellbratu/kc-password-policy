@@ -27,7 +27,7 @@ public class GroupPasswordPolicyProvider implements PasswordPolicyProvider {
             return new PolicyError("invalidPasswordPolicyConfigMessage");
         }
 
-        GroupPasswordPolicyConfig.GroupPolicy policy = GroupPasswordPolicyConfig.resolvePolicy(bundle, user);
+        GroupPasswordPolicyConfig.PolicyEntry policy = GroupPasswordPolicyConfig.resolvePolicy(bundle, user);
         if (policy == null) {
             return null;
         }

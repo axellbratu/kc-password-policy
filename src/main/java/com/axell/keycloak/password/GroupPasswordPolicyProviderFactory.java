@@ -13,7 +13,8 @@ public class GroupPasswordPolicyProviderFactory implements PasswordPolicyProvide
     private static final String DEFAULT_CONFIG = "{\n"
         + "  \"*\": { \"minLength\": 10, \"minDigits\": 1 },\n"
         + "  \"/customers\": { \"minLength\": 12, \"minDigits\": 1 },\n"
-        + "  \"/backoffice\": { \"minLength\": 14, \"minDigits\": 1, \"minUpperCase\": 1, \"minLowerCase\": 1, \"minSpecialChars\": 1, \"expireDays\": 30 }\n"
+        + "  \"/backoffice\": { \"minLength\": 14, \"minDigits\": 1, \"minUpperCase\": 1, \"minLowerCase\": 1, \"minSpecialChars\": 1, \"expireDays\": 30 },\n"
+        + "  \"role:admin\": { \"minLength\": 16, \"minDigits\": 2, \"minUpperCase\": 1, \"minLowerCase\": 1, \"minSpecialChars\": 2, \"notUsername\": true, \"expireDays\": 14 }\n"
         + "}";
 
     @Override
@@ -40,7 +41,7 @@ public class GroupPasswordPolicyProviderFactory implements PasswordPolicyProvide
 
     @Override
     public String getDisplayName() {
-        return "Group-based password policy";
+        return "Group/Role-based password policy";
     }
 
     @Override

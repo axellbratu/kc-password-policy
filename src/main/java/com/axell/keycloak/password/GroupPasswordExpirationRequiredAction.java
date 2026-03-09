@@ -29,7 +29,7 @@ public class GroupPasswordExpirationRequiredAction implements RequiredActionProv
             return;
         }
 
-        GroupPasswordPolicyConfig.GroupPolicy policy = GroupPasswordPolicyConfig.resolvePolicy(bundle, context.getUser());
+        GroupPasswordPolicyConfig.PolicyEntry policy = GroupPasswordPolicyConfig.resolvePolicy(bundle, context.getUser());
         if (policy == null || policy.expireDays == null) {
             return;
         }

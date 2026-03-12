@@ -11,15 +11,15 @@ public class GroupPasswordPolicyProviderFactory implements PasswordPolicyProvide
 
     public static final String ID = "group-password-policy";
     private static final String DEFAULT_CONFIG = "{\n"
-        + "  \"*\": { \"minLength\": 10, \"minDigits\": 1 },\n"
-        + "  \"/customers\": { \"minLength\": 12, \"minDigits\": 1 },\n"
-        + "  \"/backoffice\": { \"minLength\": 14, \"minDigits\": 1, \"minUpperCase\": 1, \"minLowerCase\": 1, \"minSpecialChars\": 1, \"expireDays\": 30 },\n"
-        + "  \"role:admin\": { \"minLength\": 16, \"minDigits\": 2, \"minUpperCase\": 1, \"minLowerCase\": 1, \"minSpecialChars\": 2, \"notUsername\": true, \"expireDays\": 14 }\n"
+        + "  \"*\": { \"minLength\": 8, \"minDigits\": 1, \"minLowerCase\": 1, \"minUpperCase\": 1, \"minSpecialChars\": 1, \"notUsername\": true, \"notEmail\": true, \"notRecentlyUsed\": 12, \"expireDays\": 90 },\n"
+        + "  \"group:customers\": { \"minLength\": 12, \"minDigits\": 1 },\n"
+        + "  \"group:backoffice\": { \"minLength\": 14, \"minDigits\": 1, \"minUpperCase\": 1, \"minLowerCase\": 1, \"minSpecialChars\": 1, \"expireDays\": 30 },\n"
+        + "  \"role:admin\": { \"minLength\": 16, \"minDigits\": 2, \"minUpperCase\": 1, \"minLowerCase\": 1, \"minSpecialChars\": 2, \"notUsername\": true, \"notEmail\": true, \"notRecentlyUsed\": 12, \"expireDays\": 14 }\n"
         + "}";
 
     @Override
     public PasswordPolicyProvider create(KeycloakSession session) {
-        return new GroupPasswordPolicyProvider(this);
+        return new GroupPasswordPolicyProvider(session, this);
     }
 
     @Override

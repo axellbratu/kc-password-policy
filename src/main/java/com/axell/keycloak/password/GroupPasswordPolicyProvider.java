@@ -1,15 +1,20 @@
 package com.axell.keycloak.password;
 
+import org.keycloak.credential.hash.PasswordHashProvider;
+import org.keycloak.models.KeycloakSession;
 import org.keycloak.models.RealmModel;
 import org.keycloak.models.UserModel;
+import org.keycloak.models.credential.PasswordCredentialModel;
 import org.keycloak.policy.PasswordPolicyProvider;
 import org.keycloak.policy.PolicyError;
 
 public class GroupPasswordPolicyProvider implements PasswordPolicyProvider {
 
+    private final KeycloakSession session;
     private final GroupPasswordPolicyProviderFactory factory;
 
-    public GroupPasswordPolicyProvider(GroupPasswordPolicyProviderFactory factory) {
+    public GroupPasswordPolicyProvider(KeycloakSession session, GroupPasswordPolicyProviderFactory factory) {
+        this.session = session;
         this.factory = factory;
     }
 
@@ -34,6 +39,10 @@ public class GroupPasswordPolicyProvider implements PasswordPolicyProvider {
 
         if (policy.notUsername && password.equalsIgnoreCase(user.getUsername())) {
             return new PolicyError("invalidPasswordNotUsernameMessage");
+        }
+
+        if (policy.notEmail && user.getEmail() != null && password.equalsIgnoreCase(user.getEmail())) {
+            return new PolicyError("invalidPasswordNotEmailMessage");
         }
 
         if (policy.minLength != null && password.length() < policy.minLength) {
@@ -62,6 +71,22 @@ public class GroupPasswordPolicyProvider implements PasswordPolicyProvider {
 
         if (policy.regex != null && !policy.regex.matcher(password).matches()) {
             return new PolicyError("invalidPasswordRegexPatternMessage", policy.regex.pattern());
+        }
+
+        if (policy.notRecentlyUsed != null && policy.notRecentlyUsed > 0) {
+            boolean recentlyUsed = user.credentialManager()
+                .getStoredCredentialsByTypeStream(PasswordCredentialModel.TYPE)
+                .limit(policy.notRecentlyUsed)
+                .anyMatch(stored -> {
+                    PasswordCredentialModel credModel = PasswordCredentialModel.createFromCredentialModel(stored);
+                    PasswordHashProvider hashProvider = session.getProvider(
+                        PasswordHashProvider.class,
+                        credModel.getPasswordCredentialData().getAlgorithm());
+                    return hashProvider != null && hashProvider.verify(password, credModel);
+                });
+            if (recentlyUsed) {
+                return new PolicyError("invalidPasswordHistoryMessage", policy.notRecentlyUsed);
+            }
         }
 
         return null;

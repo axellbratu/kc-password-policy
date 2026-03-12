@@ -189,9 +189,11 @@ final class GroupPasswordPolicyConfig {
         if (e.minUpperCase != null) count++;
         if (e.minDigits != null)    count++;
         if (e.minSpecialChars != null) count++;
-        if (e.notUsername)          count++;
-        if (e.regex != null)        count++;
-        if (e.expireDays != null)   count++;
+        if (e.notUsername)              count++;
+        if (e.notEmail)                 count++;
+        if (e.notRecentlyUsed != null)  count++;
+        if (e.regex != null)            count++;
+        if (e.expireDays != null)       count++;
         return count;
     }
 
@@ -240,6 +242,12 @@ final class GroupPasswordPolicyConfig {
             case "notusername":
                 policy.notUsername = Boolean.parseBoolean(value);
                 break;
+            case "notemail":
+                policy.notEmail = Boolean.parseBoolean(value);
+                break;
+            case "notrecentlyused":
+                policy.notRecentlyUsed = parsePositiveInteger(key, value);
+                break;
             case "regex":
                 try {
                     policy.regex = Pattern.compile(value);
@@ -280,6 +288,8 @@ final class GroupPasswordPolicyConfig {
         Integer minDigits;
         Integer minSpecialChars;
         boolean notUsername;
+        boolean notEmail;
+        Integer notRecentlyUsed;
         Pattern regex;
         Integer expireDays;
 

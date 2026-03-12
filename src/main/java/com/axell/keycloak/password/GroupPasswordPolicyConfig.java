@@ -4,7 +4,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
@@ -36,7 +35,7 @@ final class GroupPasswordPolicyConfig {
 
     private static ParsedPolicyBundle parseLegacyBundle(String rawConfig) {
         String[] entries = rawConfig.split(";");
-        List<PolicyEntry> policies = new ArrayList<>();
+        List<GroupPolicy> policies = new ArrayList<>();
 
         for (String entry : entries) {
             String normalizedEntry = entry.trim();
@@ -55,7 +54,7 @@ final class GroupPasswordPolicyConfig {
                 throw new IllegalArgumentException("Rules cannot be empty for key: " + key);
             }
 
-            PolicyEntry policy = new PolicyEntry(key);
+            GroupPolicy policy = new GroupPolicy(key);
             for (String rule : rules.split(",")) {
                 String normalizedRule = rule.trim();
                 if (normalizedRule.isEmpty()) {
@@ -77,7 +76,7 @@ final class GroupPasswordPolicyConfig {
     }
 
     private static ParsedPolicyBundle parseJsonBundle(String rawConfig) {
-        List<PolicyEntry> policies = new ArrayList<>();
+        List<GroupPolicy> policies = new ArrayList<>();
         Map<String, Map<String, Object>> root;
         try {
             root = OBJECT_MAPPER.readValue(rawConfig, new TypeReference<Map<String, Map<String, Object>>>() {});
@@ -94,7 +93,7 @@ final class GroupPasswordPolicyConfig {
                 throw new IllegalArgumentException("Rules cannot be empty for key: " + key);
             }
 
-            PolicyEntry policy = new PolicyEntry(key);
+            GroupPolicy policy = new GroupPolicy(key);
             for (Map.Entry<String, Object> ruleEntry : rules.entrySet()) {
                 String ruleKey = ruleEntry.getKey() == null ? "" : ruleEntry.getKey().trim().toLowerCase(Locale.ROOT);
                 Object rawValue = ruleEntry.getValue();
@@ -133,7 +132,7 @@ final class GroupPasswordPolicyConfig {
      *   1. Most fields set (highest count wins).
      *   2. On a tie, highest restrictiveness score — sum of all min* values.
      */
-    static PolicyEntry resolvePolicy(ParsedPolicyBundle bundle, UserModel user) {
+    static GroupPolicy resolvePolicy(ParsedPolicyBundle bundle, UserModel user) {
         List<String> groupPaths = user.getGroupsStream()
             .map(GroupPasswordPolicyConfig::toPath)
             .collect(Collectors.toList());
@@ -142,11 +141,11 @@ final class GroupPasswordPolicyConfig {
             .map(RoleModel::getName)
             .collect(Collectors.toSet());
 
-        PolicyEntry fallback = null;
-        List<PolicyEntry> matchingGroups = new ArrayList<>();
-        List<PolicyEntry> matchingRoles = new ArrayList<>();
+        GroupPolicy fallback = null;
+        List<GroupPolicy> matchingGroups = new ArrayList<>();
+        List<GroupPolicy> matchingRoles = new ArrayList<>();
 
-        for (PolicyEntry policy : bundle.policies) {
+        for (GroupPolicy policy : bundle.policies) {
             if ("*".equals(policy.key)) {
                 fallback = policy;
             } else if (policy.key.startsWith(ROLE_PREFIX)) {
@@ -174,36 +173,44 @@ final class GroupPasswordPolicyConfig {
         return fallback;
     }
 
-    private static PolicyEntry best(List<PolicyEntry> entries) {
-        return entries.stream()
-            .max(Comparator.comparingInt(GroupPasswordPolicyConfig::countFields)
-                .thenComparingInt(GroupPasswordPolicyConfig::restrictiveness))
-            .orElse(null);
+    private static GroupPolicy best(List<GroupPolicy> candidates) {
+        GroupPolicy winner = null;
+        for (GroupPolicy candidate : candidates) {
+            if (winner == null) {
+                winner = candidate;
+                continue;
+            }
+            int countDiff = countFields(candidate) - countFields(winner);
+            if (countDiff > 0 || (countDiff == 0 && restrictiveness(candidate) > restrictiveness(winner))) {
+                winner = candidate;
+            }
+        }
+        return winner;
     }
 
-    private static int countFields(PolicyEntry e) {
+    private static int countFields(GroupPolicy policy) {
         int count = 0;
-        if (e.minLength != null)    count++;
-        if (e.maxLength != null)    count++;
-        if (e.minLowerCase != null) count++;
-        if (e.minUpperCase != null) count++;
-        if (e.minDigits != null)    count++;
-        if (e.minSpecialChars != null) count++;
-        if (e.notUsername)              count++;
-        if (e.notEmail)                 count++;
-        if (e.notRecentlyUsed != null)  count++;
-        if (e.regex != null)            count++;
-        if (e.expireDays != null)       count++;
+        if (policy.minLength != null)       count++;
+        if (policy.maxLength != null)       count++;
+        if (policy.minLowerCase != null)    count++;
+        if (policy.minUpperCase != null)    count++;
+        if (policy.minDigits != null)       count++;
+        if (policy.minSpecialChars != null) count++;
+        if (policy.notUsername)             count++;
+        if (policy.notEmail)                count++;
+        if (policy.notRecentlyUsed != null) count++;
+        if (policy.regex != null)           count++;
+        if (policy.expireDays != null)      count++;
         return count;
     }
 
-    private static int restrictiveness(PolicyEntry e) {
+    private static int restrictiveness(GroupPolicy policy) {
         int score = 0;
-        if (e.minLength != null)      score += e.minLength;
-        if (e.minLowerCase != null)   score += e.minLowerCase;
-        if (e.minUpperCase != null)   score += e.minUpperCase;
-        if (e.minDigits != null)      score += e.minDigits;
-        if (e.minSpecialChars != null) score += e.minSpecialChars;
+        if (policy.minLength != null)       score += policy.minLength;
+        if (policy.minLowerCase != null)    score += policy.minLowerCase;
+        if (policy.minUpperCase != null)    score += policy.minUpperCase;
+        if (policy.minDigits != null)       score += policy.minDigits;
+        if (policy.minSpecialChars != null) score += policy.minSpecialChars;
         return score;
     }
 
@@ -217,7 +224,7 @@ final class GroupPasswordPolicyConfig {
         return "/" + String.join("/", parts);
     }
 
-    private static void applyRule(PolicyEntry policy, String key, String value) {
+    private static void applyRule(GroupPolicy policy, String key, String value) {
         switch (key) {
             case "minlength":
                 policy.minLength = parsePositiveInteger(key, value);
@@ -279,7 +286,7 @@ final class GroupPasswordPolicyConfig {
         return number;
     }
 
-    static final class PolicyEntry {
+    static final class GroupPolicy {
         final String key;
         Integer minLength;
         Integer maxLength;
@@ -293,15 +300,15 @@ final class GroupPasswordPolicyConfig {
         Pattern regex;
         Integer expireDays;
 
-        PolicyEntry(String key) {
+        GroupPolicy(String key) {
             this.key = key;
         }
     }
 
     static final class ParsedPolicyBundle {
-        final List<PolicyEntry> policies;
+        final List<GroupPolicy> policies;
 
-        ParsedPolicyBundle(List<PolicyEntry> policies) {
+        ParsedPolicyBundle(List<GroupPolicy> policies) {
             this.policies = policies;
         }
     }

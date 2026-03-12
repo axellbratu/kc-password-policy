@@ -32,7 +32,7 @@ public class GroupPasswordPolicyProvider implements PasswordPolicyProvider {
             return new PolicyError("invalidPasswordPolicyConfigMessage");
         }
 
-        GroupPasswordPolicyConfig.PolicyEntry policy = GroupPasswordPolicyConfig.resolvePolicy(bundle, user);
+        GroupPasswordPolicyConfig.GroupPolicy policy = GroupPasswordPolicyConfig.resolvePolicy(bundle, user);
         if (policy == null) {
             return null;
         }

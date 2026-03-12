@@ -123,11 +123,15 @@ final class GroupPasswordPolicyConfig {
     /**
      * Resolves the single best-matching policy for the given user.
      *
-     * All entries whose key matches the user (wildcard, group, or role) are collected.
-     * The winner is chosen by:
+     * Priority tiers (highest first):
+     *   1. Role entries  — if the user has any matching role:name entries, the best
+     *                      one among them is used and groups/wildcard are ignored.
+     *   2. Group entries — if no role matched, the best matching group:path entry is used.
+     *   3. Wildcard "*"  — fallback when nothing else matches.
+     *
+     * Within a tier, the winner is chosen by:
      *   1. Most fields set (highest count wins).
-     *   2. On a tie, highest restrictiveness score wins — defined as the sum of all
-     *      min* values (minLength + minLowerCase + minUpperCase + minDigits + minSpecialChars).
+     *   2. On a tie, highest restrictiveness score — sum of all min* values.
      */
     static PolicyEntry resolvePolicy(ParsedPolicyBundle bundle, UserModel user) {
         List<String> groupPaths = user.getGroupsStream()
@@ -138,28 +142,40 @@ final class GroupPasswordPolicyConfig {
             .map(RoleModel::getName)
             .collect(Collectors.toSet());
 
-        List<PolicyEntry> candidates = new ArrayList<>();
+        PolicyEntry fallback = null;
+        List<PolicyEntry> matchingGroups = new ArrayList<>();
+        List<PolicyEntry> matchingRoles = new ArrayList<>();
 
         for (PolicyEntry policy : bundle.policies) {
             if ("*".equals(policy.key)) {
-                candidates.add(policy);
+                fallback = policy;
             } else if (policy.key.startsWith(ROLE_PREFIX)) {
                 String roleName = policy.key.substring(ROLE_PREFIX.length());
                 if (roleNames.contains(roleName)) {
-                    candidates.add(policy);
+                    matchingRoles.add(policy);
                 }
             } else if (policy.key.startsWith(GROUP_PREFIX)) {
                 String groupPath = "/" + policy.key.substring(GROUP_PREFIX.length());
                 for (String userGroupPath : groupPaths) {
                     if (userGroupPath.equals(groupPath) || userGroupPath.startsWith(groupPath + "/")) {
-                        candidates.add(policy);
+                        matchingGroups.add(policy);
                         break;
                     }
                 }
             }
         }
 
-        return candidates.stream()
+        if (!matchingRoles.isEmpty()) {
+            return best(matchingRoles);
+        }
+        if (!matchingGroups.isEmpty()) {
+            return best(matchingGroups);
+        }
+        return fallback;
+    }
+
+    private static PolicyEntry best(List<PolicyEntry> entries) {
+        return entries.stream()
             .max(Comparator.comparingInt(GroupPasswordPolicyConfig::countFields)
                 .thenComparingInt(GroupPasswordPolicyConfig::restrictiveness))
             .orElse(null);

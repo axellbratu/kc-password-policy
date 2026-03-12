@@ -112,11 +112,11 @@ final class GroupPasswordPolicyConfig {
         if (key == null || key.isEmpty()) {
             throw new IllegalArgumentException("Key cannot be empty");
         }
-        if ("*".equals(key) || key.startsWith(GROUP_PREFIX) || key.startsWith(ROLE_PREFIX)) {
+        if ("*".equals(key) || key.startsWith(GROUP_PREFIX) || key.startsWith(ROLE_PREFIX) || key.startsWith("/")) {
             return;
         }
         throw new IllegalArgumentException(
-            "Invalid key '" + key + "'. Keys must be '*', 'group:<path>', or 'role:<name>'");
+            "Invalid key '" + key + "'. Keys must be '*', 'group:<path>', 'role:<name>', or legacy '/<path>'");
     }
 
     /**
@@ -153,8 +153,10 @@ final class GroupPasswordPolicyConfig {
                 if (roleNames.contains(roleName)) {
                     matchingRoles.add(policy);
                 }
-            } else if (policy.key.startsWith(GROUP_PREFIX)) {
-                String groupPath = "/" + policy.key.substring(GROUP_PREFIX.length());
+            } else if (policy.key.startsWith(GROUP_PREFIX) || policy.key.startsWith("/")) {
+                String groupPath = policy.key.startsWith(GROUP_PREFIX)
+                    ? "/" + policy.key.substring(GROUP_PREFIX.length())
+                    : policy.key;
                 for (String userGroupPath : groupPaths) {
                     if (userGroupPath.equals(groupPath) || userGroupPath.startsWith(groupPath + "/")) {
                         matchingGroups.add(policy);
